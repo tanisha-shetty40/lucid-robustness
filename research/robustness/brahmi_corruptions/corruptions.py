@@ -5,9 +5,9 @@ import numpy as np
 BLUR = [0.002, 0.004, 0.007, 0.010, 0.015]
 NOISE = [5, 10, 20, 35, 50]
 CONTRAST = [0.8, 0.6, 0.45, 0.3, 0.2]
-BRIGHTNESS = [15, 30, 50, 70, 90]
-JPEG_QUALITY = [60, 40, 25, 15, 8]
-DOWNSCALE = [0.75, 0.5, 0.35, 0.25, 0.15]
+SHIFT = [15, 30, 50, 70, 90]
+JPEG_Q = [60, 40, 25, 15, 8]
+SCALE = [0.75, 0.5, 0.35, 0.25, 0.15]
 
 
 def _validate_input(img, severity):
@@ -65,14 +65,14 @@ def brightness_up(img, severity, seed=0):
     result = _prepare(img, severity)
     if result is not None:
         return result
-    return _to_u8(img.astype(np.float32) + BRIGHTNESS[severity - 1])
+    return _to_u8(img.astype(np.float32) + SHIFT[severity - 1])
 
 
 def brightness_down(img, severity, seed=0):
     result = _prepare(img, severity)
     if result is not None:
         return result
-    return _to_u8(img.astype(np.float32) - BRIGHTNESS[severity - 1])
+    return _to_u8(img.astype(np.float32) - SHIFT[severity - 1])
 
 
 def jpeg(img, severity, seed=0):
@@ -81,7 +81,7 @@ def jpeg(img, severity, seed=0):
         return result
     success, encoded = cv2.imencode(
         ".jpg", img,
-        [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY[severity - 1]]
+        [cv2.IMWRITE_JPEG_QUALITY, JPEG_Q[severity - 1]]
     )
     if not success:
         raise RuntimeError("JPEG encoding failed")
@@ -95,7 +95,7 @@ def downscale(img, severity, seed=0):
     result = _prepare(img, severity)
     if result is not None:
         return result
-    scale = DOWNSCALE[severity - 1]
+    scale = SCALE[severity - 1]
     height, width = img.shape
     small = cv2.resize(
         img,
@@ -116,3 +116,5 @@ CORRUPTIONS = {
     "jpeg": jpeg,
     "downscale": downscale,
 }
+
+
