@@ -5,29 +5,32 @@ import numpy as np
 from PIL import Image
 
 from research.robustness.dhathri_benchmark_runner.sweep import run_sweep
+from research.robustness.brahmi_corruptions.corruptions import CORRUPTIONS
 
 
 BASE_DIR = Path(__file__).resolve().parent
 IMAGE_DIR = BASE_DIR / "demo_images"
-OUTPUT_CSV = BASE_DIR / "mini_sweep_results.csv"
+
+# Separate output file for the 7-corruption demo
+OUTPUT_CSV = BASE_DIR / "brahmi_corruption_demo_results.csv"
 
 
-def brightness(image, severity, rng):
-    result = image.astype(np.float32) + severity * 10
-    return np.clip(result, 0, 255).astype(np.uint8)
+def make_adapter(corruption_fn):
+    """Adapt Brahmi's seed-based function to the sweep RNG interface."""
+    def adapted_corruption(image, severity, rng):
+        seed = int(rng.integers(0, 2**32 - 1))
+        return corruption_fn(image, severity, seed=seed)
 
-
-def gaussian_noise(image, severity, rng):
-    noise = rng.normal(0, severity * 5, image.shape)
-    result = image.astype(np.float32) + noise
-    return np.clip(result, 0, 255).astype(np.uint8)
+    return adapted_corruption
 
 
 def predict_demo(image):
+    # Placeholder predictor for pipeline testing only
     return 0.7 if np.mean(image) > 100 else 0.3
 
 
 def quality_demo(image):
+    # Placeholder quality score for pipeline testing only
     return float(np.mean(image) / 255 * 100)
 
 
@@ -36,7 +39,8 @@ def load_demo_images():
 
     for image_path in sorted(IMAGE_DIR.glob("image_*.png")):
         image = np.asarray(
-            Image.open(image_path).convert("L")
+            Image.open(image_path).convert("L"),
+            dtype=np.uint8
         )
 
         records.append({
@@ -56,22 +60,23 @@ def main():
             f"Expected 8 demo images, found {len(records)}"
         )
 
-    corruptions = {
-        "brightness": brightness,
-        "gaussian_noise": gaussian_noise,
+    adapted_corruptions = {
+        name: make_adapter(function)
+        for name, function in CORRUPTIONS.items()
     }
 
     results = run_sweep(
         records=records,
-        corruptions=corruptions,
+        corruptions=adapted_corruptions,
         predict_fn=predict_demo,
         quality_fn=quality_demo,
-        severities=(0, 1, 2),
+        severities=(0, 1, 2, 3, 4, 5),
         output_csv=OUTPUT_CSV,
     )
 
-    print("Mini sweep completed!")
+    print("Seven-corruption demo completed!")
     print("Total rows:", len(results))
+    print("Corruptions:", list(adapted_corruptions.keys()))
     print("CSV saved at:", OUTPUT_CSV)
 
 
