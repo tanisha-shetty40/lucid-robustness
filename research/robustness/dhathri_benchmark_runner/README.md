@@ -1,9 +1,11 @@
 # Benchmark Runner – Group B Robustness
 
 ## Overview
+
 The benchmark runner evaluates image classification performance under different image-quality corruption conditions. It applies corruption functions to input images, runs predictions, calculates correctness, records quality scores, and saves the results in CSV format.
 
 ## Implemented Features
+
 - Baseline image evaluation.
 - Integration of seven corruption functions from the Brahmi corruption library.
 - Five corruption severity levels (1–5).
@@ -11,8 +13,11 @@ The benchmark runner evaluates image classification performance under different 
 - Quality-score recording.
 - CSV result generation.
 - Incremental saving and basic resume functionality.
+- Summary metrics including accuracy, precision, recall, F1-score, specificity and error rate.
+- Confusion-matrix values and baseline accuracy comparison.
 
 ## Corruption Types
+
 1. Blur
 2. Noise
 3. Contrast
@@ -22,6 +27,7 @@ The benchmark runner evaluates image classification performance under different 
 7. Downscale
 
 ## Demo Testing
+
 The pipeline was tested using eight synthetic demo images.
 
 - Total conditions per image: 36
@@ -32,19 +38,41 @@ The pipeline was tested using eight synthetic demo images.
 The demo used placeholder prediction and quality-score functions for pipeline testing only. These results are not research findings.
 
 ## Running the Benchmark
+
 Run from the repository root:
 
 ```powershell
 python -m research.robustness.dhathri_benchmark_runner.run
 ```
 
+## Running the Summary
+
+Run:
+
+```powershell
+python -m research.robustness.dhathri_benchmark_runner.summarize
+```
+
+The summary script generates `demo_summary.csv` containing classification metrics and baseline comparisons.
+
 ## Dependencies
+
 - Python
 - NumPy
 - Pandas
 - Pillow
 - OpenCV
 - Pytest
+- scikit-learn
+
+Install scikit-learn using:
+
+```powershell
+python -m pip install scikit-learn
+```
 
 ## Research Requirements
+
 Actual research evaluation requires the approved frozen model checkpoint, real test images and labels, and the existing patient-level data split. The model and preprocessing must remain consistent throughout the experiment.
+
+Demo predictions and synthetic smoke-test results must not be reported as research findings.
