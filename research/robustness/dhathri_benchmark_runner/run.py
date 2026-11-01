@@ -24,12 +24,10 @@ def gaussian_noise(image, severity, rng):
 
 
 def predict_demo(image):
-    # Placeholder prediction for testing the pipeline only.
     return 0.7 if np.mean(image) > 100 else 0.3
 
 
 def quality_demo(image):
-    # Placeholder quality score for testing only.
     return float(np.mean(image) / 255 * 100)
 
 
@@ -72,11 +70,10 @@ def main():
         output_csv=OUTPUT_CSV,
     )
 
-    print("\nMini sweep completed!")
+    print("Mini sweep completed!")
     print("Total rows:", len(results))
     print("CSV saved at:", OUTPUT_CSV)
 
 
 if __name__ == "__main__":
     main()
-
