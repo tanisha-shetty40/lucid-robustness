@@ -1,101 +1,166 @@
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
-from sklearn.metrics import confusion_matrix, precision_score, recall_score, f1_score
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+    confusion_matrix,
+)
 
 
-def summarize_results(input_csv, output_csv):
-    df = pd.read_csv(input_csv)
+BASE_DIR = Path(__file__).resolve().parent
 
-    required_columns = {
-        "image_id",
-        "label",
-        "corruption",
-        "severity",
-        "probability",
-        "prediction",
-        "correct",
-        "quality_score",
+INPUT_CSV = BASE_DIR / "mini_sweep_results.csv"
+OUTPUT_CSV = BASE_DIR / "summary.csv"
+
+REQUIRED_COLUMNS = [
+    "image_id",
+    "label",
+    "corruption",
+    "severity",
+    "prob_pneumonia",
+]
+
+
+def calculate_metrics(group):
+    labels = group["label"].astype(int)
+    probabilities = group["prob_pneumonia"].astype(float)
+
+    predictions = (probabilities >= 0.5).astype(int)
+
+    tn, fp, fn, tp = confusion_matrix(
+        labels,
+        predictions,
+        labels=[0, 1],
+    ).ravel()
+
+    accuracy = accuracy_score(labels, predictions)
+
+    precision = precision_score(
+        labels, predictions, zero_division=0
+    )
+
+    sensitivity = recall_score(
+        labels, predictions, zero_division=0
+    )
+
+    specificity = (
+        tn / (tn + fp) if (tn + fp) > 0 else np.nan
+    )
+
+    f1 = f1_score(
+        labels, predictions, zero_division=0
+    )
+
+    # AUC requires both positive and negative labels.
+    if labels.nunique() == 2:
+        auc = roc_auc_score(labels, probabilities)
+    else:
+        auc = np.nan
+
+    return {
+        "n": len(group),
+        "auc": auc,
+        "accuracy": accuracy,
+        "precision": precision,
+        "sensitivity": sensitivity,
+        "specificity": specificity,
+        "f1_score": f1,
+        "true_negative": tn,
+        "false_positive": fp,
+        "false_negative": fn,
+        "true_positive": tp,
+        "error_count": fp + fn,
+        "error_rate": (fp + fn) / len(group),
+        "average_probability": probabilities.mean(),
+        "average_quality": (
+            group["quality"].mean()
+            if "quality" in group.columns
+            else np.nan
+        ),
     }
 
-    missing = required_columns - set(df.columns)
+
+def summarize_results(input_csv=INPUT_CSV, output_csv=OUTPUT_CSV):
+    input_csv = Path(input_csv)
+    output_csv = Path(output_csv)
+
+    if not input_csv.exists():
+        raise FileNotFoundError(
+            f"Input CSV not found: {input_csv}"
+        )
+
+    df = pd.read_csv(input_csv)
+
+    missing = [
+        column for column in REQUIRED_COLUMNS
+        if column not in df.columns
+    ]
 
     if missing:
-        raise ValueError(f"Missing columns: {missing}")
+        raise ValueError(
+            f"Missing required columns: {missing}"
+        )
 
-    results = []
+    if df.empty:
+        raise ValueError("Input CSV is empty.")
+
+    if not df["label"].isin([0, 1]).all():
+        raise ValueError("Labels must contain only 0 or 1.")
+
+    if not df["prob_pneumonia"].between(0, 1).all():
+        raise ValueError(
+            "Prediction probabilities must be between 0 and 1."
+        )
+
+    summary_rows = []
 
     for (corruption, severity), group in df.groupby(
         ["corruption", "severity"]
     ):
-        y_true = group["label"].astype(int)
-        y_pred = group["prediction"].astype(int)
+        metrics = calculate_metrics(group)
 
-        tn, fp, fn, tp = confusion_matrix(
-            y_true, y_pred, labels=[0, 1]
-        ).ravel()
-
-        accuracy = (tp + tn) / len(group)
-        precision = precision_score(
-            y_true, y_pred, zero_division=0
-        )
-        recall = recall_score(
-            y_true, y_pred, zero_division=0
-        )
-        f1 = f1_score(
-            y_true, y_pred, zero_division=0
-        )
-
-        specificity = tn / (tn + fp) if (tn + fp) else float("nan")
-
-        results.append({
+        summary_rows.append({
             "corruption": corruption,
-            "severity": severity,
-            "total_images": group["image_id"].nunique(),
-            "accuracy": accuracy,
-            "precision": precision,
-            "recall": recall,
-            "f1_score": f1,
-            "specificity": specificity,
-            "error_rate": 1 - accuracy,
-            "true_negative": tn,
-            "false_positive": fp,
-            "false_negative": fn,
-            "true_positive": tp,
-            "average_probability": group["probability"].mean(),
-            "average_quality": group["quality_score"].mean(),
+            "severity": int(severity),
+            **metrics,
         })
 
-    summary = pd.DataFrame(results)
+    summary = pd.DataFrame(summary_rows)
 
+    # Compare each condition with baseline accuracy.
     baseline = summary[
-        summary["corruption"] == "baseline"
+        (summary["corruption"] == "baseline")
+        & (summary["severity"] == 0)
     ]
 
-    if baseline.empty:
-        raise ValueError("Baseline results are missing.")
+    if not baseline.empty:
+        baseline_accuracy = baseline.iloc[0]["accuracy"]
 
-    baseline_accuracy = baseline["accuracy"].iloc[0]
+        summary["accuracy_drop"] = (
+            baseline_accuracy - summary["accuracy"]
+        )
+    else:
+        summary["accuracy_drop"] = np.nan
 
-    summary["accuracy_drop"] = (
-        baseline_accuracy - summary["accuracy"]
+    output_csv.parent.mkdir(
+        parents=True,
+        exist_ok=True,
     )
 
-    output_path = Path(output_csv)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    summary.to_csv(output_path, index=False)
+    summary.to_csv(output_csv, index=False)
 
     print("Summary generated successfully!")
-    print(summary.to_string(index=False))
-    print("Saved to:", output_path)
+    print("Conditions:", len(summary))
+    print("Saved to:", output_csv)
+
+    return summary
 
 
 if __name__ == "__main__":
-    folder = Path(__file__).resolve().parent
-
-    input_file = folder / "brahmi_corruption_demo_results.csv"
-    output_file = folder / "demo_summary.csv"
-
-    summarize_results(input_file, output_file)
+    summarize_results()

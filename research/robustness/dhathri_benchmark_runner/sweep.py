@@ -11,11 +11,103 @@ RESULT_COLUMNS = [
     "label",
     "corruption",
     "severity",
-    "probability",
-    "prediction",
-    "correct",
-    "quality_score",
+    "prob_pneumonia",
+    "quality",
+    "q_brightness",
+    "q_contrast",
+    "q_sharpness",
+    "q_noise",
+    "q_clipping",
 ]
+
+
+def validate_record(record):
+    required = {"image_id", "image", "label"}
+
+    if not required.issubset(record):
+        raise ValueError(
+            f"Each record must contain: {required}"
+        )
+
+    if record["label"] not in (0, 1):
+        raise ValueError("Label must be 0 or 1.")
+
+    if not isinstance(record["image_id"], str):
+        raise ValueError("image_id must be a string.")
+
+
+def validate_probability(probability):
+    probability = float(probability)
+
+    if not np.isfinite(probability):
+        raise ValueError("Prediction probability must be finite.")
+
+    if not 0 <= probability <= 1:
+        raise ValueError(
+            "Prediction probability must be between 0 and 1."
+        )
+
+    return probability
+
+
+def get_condition_seed(seed, image_id, corruption, severity):
+    text = f"{seed}|{image_id}|{corruption}|{severity}"
+
+    digest = hashlib.sha256(
+        text.encode("utf-8")
+    ).hexdigest()
+
+    return int(digest[:8], 16)
+
+
+def get_quality_values(image, quality_fn):
+    default_values = {
+        "quality": np.nan,
+        "q_brightness": np.nan,
+        "q_contrast": np.nan,
+        "q_sharpness": np.nan,
+        "q_noise": np.nan,
+        "q_clipping": np.nan,
+    }
+
+    if quality_fn is None:
+        return default_values
+
+    result = quality_fn(image)
+
+    # Supports the older quality function that returns one number.
+    if isinstance(result, (int, float, np.integer, np.floating)):
+        default_values["quality"] = float(result)
+        return default_values
+
+    # Supports a quality function returning a dictionary.
+    if isinstance(result, dict):
+        key_mapping = {
+            "score": "quality",
+            "quality": "quality",
+            "brightness": "q_brightness",
+            "q_brightness": "q_brightness",
+            "contrast": "q_contrast",
+            "q_contrast": "q_contrast",
+            "sharpness": "q_sharpness",
+            "q_sharpness": "q_sharpness",
+            "noise": "q_noise",
+            "q_noise": "q_noise",
+            "clipping": "q_clipping",
+            "q_clipping": "q_clipping",
+        }
+
+        for source_key, target_key in key_mapping.items():
+            if source_key in result:
+                default_values[target_key] = float(
+                    result[source_key]
+                )
+
+        return default_values
+
+    raise ValueError(
+        "quality_fn must return a number, a dictionary, or None."
+    )
 
 
 def run_sweep(
@@ -28,129 +120,135 @@ def run_sweep(
     limit=None,
     output_csv=None,
 ):
-    """Run a benchmark sweep and optionally resume from a CSV."""
+    records = list(records)
 
     if limit is not None:
         records = records[:limit]
 
-    output_path = Path(output_csv) if output_csv is not None else None
-
-    if output_path is not None:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Load previous results if the CSV already exists.
-    if output_path is not None and output_path.exists():
-        df = pd.read_csv(output_path)
-
-        if not set(RESULT_COLUMNS).issubset(df.columns):
-            raise ValueError("Existing CSV has an invalid format.")
-
-        completed = set(
-            zip(df["image_id"], df["corruption"], df["severity"])
-        )
-    else:
-        df = pd.DataFrame(columns=RESULT_COLUMNS)
-        completed = set()
-
-    new_results = []
-
     for record in records:
-        image_id = record["image_id"]
-        image = np.asarray(record["image"])
+        validate_record(record)
+
+    if not callable(predict_fn):
+        raise ValueError("predict_fn must be a function.")
+
+    for name, function in corruptions.items():
+        if not callable(function):
+            raise ValueError(
+                f"Corruption '{name}' must be a function."
+            )
+
+    results = []
+    completed = set()
+
+    # Resume from an existing CSV file.
+    if output_csv is not None:
+        output_path = Path(output_csv)
+        output_path.parent.mkdir(
+            parents=True, exist_ok=True
+        )
+
+        if output_path.exists():
+            existing = pd.read_csv(output_path)
+
+            if not existing.empty:
+                required_keys = {
+                    "image_id", "corruption", "severity"
+                }
+
+                if not required_keys.issubset(existing.columns):
+                    raise ValueError(
+                        "Existing CSV does not contain the "
+                        "required resume columns."
+                    )
+
+                completed = set(
+                    zip(
+                        existing["image_id"].astype(str),
+                        existing["corruption"].astype(str),
+                        existing["severity"].astype(int),
+                    )
+                )
+
+                results = existing.to_dict("records")
+
+    def save_results():
+        if output_csv is not None:
+            pd.DataFrame(
+                results,
+                columns=RESULT_COLUMNS
+            ).to_csv(output_csv, index=False)
+
+    # Run baseline and corrupted conditions.
+    for record in records:
+        image_id = str(record["image_id"])
         label = int(record["label"])
+        original_image = np.asarray(record["image"])
 
-        if label not in (0, 1):
-            raise ValueError(f"Invalid label for {image_id}")
+        conditions = [("baseline", 0, original_image)]
 
-        # Baseline condition: original image without corruption.
-        conditions = [("baseline", 0, image)]
-
-        # Generate corrupted images.
         for corruption_name, corruption_fn in corruptions.items():
-
             for severity in severities:
-
-                if not isinstance(severity, (int, float)):
-                    raise ValueError("Severity must be numeric")
-
                 if severity == 0:
                     continue
 
-                seed_text = (
-                    f"{seed}|{image_id}|{corruption_name}|{severity}"
-                )
-
-                condition_seed = int.from_bytes(
-                    hashlib.sha256(seed_text.encode()).digest()[:8],
-                    "big",
+                condition_seed = get_condition_seed(
+                    seed,
+                    image_id,
+                    corruption_name,
+                    severity,
                 )
 
                 rng = np.random.default_rng(condition_seed)
 
                 corrupted_image = corruption_fn(
-                    image.copy(), severity, rng
+                    original_image.copy(),
+                    severity,
+                    rng,
                 )
 
                 conditions.append(
-                    (corruption_name, severity, corrupted_image)
+                    (
+                        corruption_name,
+                        severity,
+                        corrupted_image,
+                    )
                 )
 
-        # Run prediction for each condition.
-        for corruption_name, severity, test_image in conditions:
+        for corruption_name, severity, image in conditions:
+            key = (image_id, corruption_name, int(severity))
 
-            key = (image_id, corruption_name, severity)
-
-            # Skip conditions already saved in the CSV.
             if key in completed:
                 continue
 
-            probability = float(predict_fn(test_image))
+            probability = validate_probability(
+                predict_fn(image)
+            )
 
-            if not np.isfinite(probability) or not 0 <= probability <= 1:
-                raise ValueError(
-                    "Prediction probability must be between 0 and 1"
-                )
+            quality_values = get_quality_values(
+                image,
+                quality_fn,
+            )
 
-            prediction = int(probability >= 0.5)
-
-            if quality_fn is not None:
-                quality_score = float(quality_fn(test_image))
-            else:
-                quality_score = np.nan
-
-            new_results.append({
+            row = {
                 "image_id": image_id,
                 "label": label,
                 "corruption": corruption_name,
-                "severity": severity,
-                "probability": probability,
-                "prediction": prediction,
-                "correct": int(prediction == label),
-                "quality_score": quality_score,
-            })
+                "severity": int(severity),
+                "prob_pneumonia": probability,
+                **quality_values,
+            }
 
+            results.append(row)
             completed.add(key)
 
-        # Save progress after each image.
-        if output_path is not None and new_results:
-            df = pd.concat(
-                [df, pd.DataFrame(new_results)],
-                ignore_index=True,
-            )
+            # Save after each completed condition.
+            save_results()
 
-            df.to_csv(output_path, index=False)
-            new_results = []
+    final_results = pd.DataFrame(
+        results,
+        columns=RESULT_COLUMNS,
+    )
 
-    # Add any remaining results.
-    if new_results:
-        df = pd.concat(
-            [df, pd.DataFrame(new_results)],
-            ignore_index=True,
-        )
+    save_results()
 
-    # Save final results.
-    if output_path is not None:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(output_path, index=False)
-
-    return df
+    return final_results

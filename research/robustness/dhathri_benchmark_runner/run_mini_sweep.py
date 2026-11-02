@@ -1,9 +1,11 @@
+
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
 from research.robustness.dhathri_benchmark_runner.sweep import run_sweep
+from research.robustness.dhathri_benchmark_runner.quality import calculate_quality
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -25,6 +27,7 @@ def gaussian_noise(image, severity, rng):
         scale=severity * 5,
         size=image.shape,
     )
+
     return np.clip(
         image.astype(np.float32) + noise,
         0,
@@ -36,10 +39,6 @@ def predict_demo(image):
     return 0.7 if np.mean(image) > 100 else 0.3
 
 
-def quality_demo(image):
-    return float(np.mean(image) / 255 * 100)
-
-
 def load_demo_images():
     records = []
 
@@ -48,6 +47,7 @@ def load_demo_images():
             Image.open(image_path).convert("L"),
             dtype=np.uint8,
         )
+
         records.append({
             "image_id": image_path.stem,
             "image": image,
@@ -72,7 +72,7 @@ def main():
             "gaussian_noise": gaussian_noise,
         },
         predict_fn=predict_demo,
-        quality_fn=quality_demo,
+        quality_fn=calculate_quality,
         severities=(1, 2),
         output_csv=OUTPUT_CSV,
     )
