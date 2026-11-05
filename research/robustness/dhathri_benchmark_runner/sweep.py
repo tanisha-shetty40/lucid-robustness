@@ -184,7 +184,7 @@ def run_sweep(
         label = int(record["label"])
         original_image = np.asarray(record["image"])
 
-        conditions = [("baseline", 0, original_image)]
+        conditions = [("none", 0, original_image)]
 
         for corruption_name, corruption_fn in corruptions.items():
             for severity in severities:
