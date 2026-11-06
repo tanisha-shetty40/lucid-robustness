@@ -40,7 +40,9 @@ def validate_probability(probability):
     probability = float(probability)
 
     if not np.isfinite(probability):
-        raise ValueError("Prediction probability must be finite.")
+        raise ValueError(
+            "Prediction probability must be finite."
+        )
 
     if not 0 <= probability <= 1:
         raise ValueError(
@@ -75,12 +77,13 @@ def get_quality_values(image, quality_fn):
 
     result = quality_fn(image)
 
-    # Supports the older quality function that returns one number.
-    if isinstance(result, (int, float, np.integer, np.floating)):
+    if isinstance(
+        result,
+        (int, float, np.integer, np.floating)
+    ):
         default_values["quality"] = float(result)
         return default_values
 
-    # Supports a quality function returning a dictionary.
     if isinstance(result, dict):
         key_mapping = {
             "score": "quality",
@@ -110,6 +113,22 @@ def get_quality_values(image, quality_fn):
     )
 
 
+def validate_grayscale_image(image):
+    image = np.asarray(image)
+
+    if image.ndim != 2:
+        raise ValueError(
+            "Input image must be grayscale (2D)."
+        )
+
+    if image.dtype != np.uint8:
+        raise TypeError(
+            "Input image must have uint8 data type."
+        )
+
+    return image
+
+
 def run_sweep(
     records,
     corruptions,
@@ -137,14 +156,28 @@ def run_sweep(
                 f"Corruption '{name}' must be a function."
             )
 
+    if not severities:
+        raise ValueError("At least one severity is required.")
+
+    for severity in severities:
+        if not isinstance(severity, (int, np.integer)):
+            raise ValueError("Severity values must be integers.")
+
+        if not 0 <= severity <= 5:
+            raise ValueError(
+                "Severity values must be between 0 and 5."
+            )
+
     results = []
     completed = set()
 
     # Resume from an existing CSV file.
     if output_csv is not None:
         output_path = Path(output_csv)
+
         output_path.parent.mkdir(
-            parents=True, exist_ok=True
+            parents=True,
+            exist_ok=True
         )
 
         if output_path.exists():
@@ -152,13 +185,15 @@ def run_sweep(
 
             if not existing.empty:
                 required_keys = {
-                    "image_id", "corruption", "severity"
+                    "image_id",
+                    "corruption",
+                    "severity"
                 }
 
                 if not required_keys.issubset(existing.columns):
                     raise ValueError(
-                        "Existing CSV does not contain the "
-                        "required resume columns."
+                        "Existing CSV does not contain "
+                        "the required resume columns."
                     )
 
                 completed = set(
@@ -182,12 +217,19 @@ def run_sweep(
     for record in records:
         image_id = str(record["image_id"])
         label = int(record["label"])
-        original_image = np.asarray(record["image"])
 
-        conditions = [("none", 0, original_image)]
+        original_image = validate_grayscale_image(
+            record["image"]
+        )
+
+        conditions = [
+            ("none", 0, original_image)
+        ]
 
         for corruption_name, corruption_fn in corruptions.items():
+
             for severity in severities:
+
                 if severity == 0:
                     continue
 
@@ -198,13 +240,24 @@ def run_sweep(
                     severity,
                 )
 
+                # Create a reproducible random generator.
                 rng = np.random.default_rng(condition_seed)
 
+                # Pass the generator to the corruption function.
                 corrupted_image = corruption_fn(
                     original_image.copy(),
                     severity,
                     rng,
                 )
+
+                corrupted_image = validate_grayscale_image(
+                    corrupted_image
+                )
+
+                if corrupted_image.shape != original_image.shape:
+                    raise ValueError(
+                        f"{corruption_name} changed image dimensions."
+                    )
 
                 conditions.append(
                     (
@@ -215,7 +268,12 @@ def run_sweep(
                 )
 
         for corruption_name, severity, image in conditions:
-            key = (image_id, corruption_name, int(severity))
+
+            key = (
+                image_id,
+                corruption_name,
+                int(severity)
+            )
 
             if key in completed:
                 continue
@@ -241,7 +299,7 @@ def run_sweep(
             results.append(row)
             completed.add(key)
 
-            # Save after each completed condition.
+            # Save after every completed condition.
             save_results()
 
     final_results = pd.DataFrame(
