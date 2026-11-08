@@ -73,3 +73,25 @@ def test_quality_score_is_between_zero_and_one_hundred():
         "local_contrast",
     }
     np.testing.assert_array_equal(image, original)
+
+@pytest.mark.parametrize(
+    "indicator",
+    [hist_spread, edge_density, entropy],
+)
+def test_first_three_indicators_on_clean_constant_and_noisy_images(indicator):
+    clean = np.zeros((64, 64), dtype=np.uint8)
+    clean[16:48, 16:48] = 200
+
+    constant = np.full((64, 64), 100, dtype=np.uint8)
+
+    rng = np.random.default_rng(42)
+    noisy = np.clip(
+        rng.normal(128, 20, size=(64, 64)), 0, 255
+    ).astype(np.uint8)
+
+    for image in (clean, constant, noisy):
+        first = indicator(image)
+        second = indicator(image)
+
+        assert np.isfinite(first)
+        assert first == second
