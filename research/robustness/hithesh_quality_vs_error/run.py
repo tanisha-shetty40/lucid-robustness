@@ -13,14 +13,21 @@ from research.robustness.hithesh_quality_vs_error.analysis import (
 
 def main():
     parser = argparse.ArgumentParser(description="Run Quality vs Error Analysis")
-    parser.add_argument("--sweep", type=str, default="demo", help="Sweep mode (e.g. demo)")
+    parser.add_argument("--sweep", type=str, default=None, help="Path to sweep CSV dataset or flag")
+    parser.add_argument("--demo", action="store_true", help="Run using demo data")
     args = parser.parse_args()
 
     out_dir = "results/robustness/hithesh"
     os.makedirs(out_dir, exist_ok=True)
 
-    print(f"Running sweep: {args.sweep}")
-    df = make_demo_sweep(n_samples=500, seed=42)
+    # Load data based on flags
+    if args.sweep:
+        print(f"Loading sweep dataset from: {args.sweep}")
+        df = pd.read_csv(args.sweep)
+    elif args.demo or not args.sweep:
+        print("Running demo sweep data generation...")
+        df = make_demo_sweep(n_samples=500, seed=42)
+    
     df_added = add_wrong(df)
 
     # 1. AUC calculation

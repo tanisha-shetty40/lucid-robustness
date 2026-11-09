@@ -1,4 +1,4 @@
 # One-Page Summary: Quality vs Error Analysis
-- **AUC**: 0.9273 (95% CI: [0.9021, 0.9472])
-- **Spearman Rho**: -0.0022 (p-value: 9.6160e-01)
+- **AUC**: 0.5526 (95% CI: [0.5373, 0.5656])
+- **Spearman Rho**: 0.0921 (p-value: 3.2892e-60)
 - **Outputs generated successfully in `results/robustness/hithesh`**.
