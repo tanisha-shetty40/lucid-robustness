@@ -1,50 +1,90 @@
-﻿# Group B - Model Robustness Research
+# Benchmark Runner – Group B Robustness
 
+## 1. Overview
 
+This project evaluates the quality of chest X-ray images under different image-corruption conditions. The benchmark applies corruption functions at different severity levels and records image-quality measurements in CSV files.
 
-## Purpose
+The current implementation includes a 50-image provisional quality benchmark. Model prediction evaluation will be integrated after the approved frozen model checkpoint is provided.
 
-Evaluate how image-quality degradation affects the performance of the frozen image-classification model and investigate whether image-quality scores are associated with model errors.
+## 2. Implemented Features
 
+- Baseline image-quality evaluation.
+- Integration of seven corruption functions from the Brahmi corruption library.
+- Five corruption severity levels (1–5).
+- Quality-score recording.
+- Recording of brightness, contrast, sharpness, noise and clipping measurements.
+- CSV result generation.
+- Deterministic random seeds for reproducibility.
+- Automated tests for sweep execution, CSV saving and resume functionality.
+- Quality-summary generation and graph plotting.
 
+## 3. Corruption Types
 
-## Research Plan
+1. Blur
+2. Noise
+3. Contrast
+4. Brightness increase
+5. Brightness decrease
+6. JPEG compression
+7. Downscaling
 
-See \[PLAN.md](PLAN.md) for the objectives, corruption conditions, evaluation protocol, metrics, and completion criteria.
+## 4. Provisional Benchmark Results
 
+The quality benchmark was tested using 50 real test images from the existing patient-level test split.
 
+- Number of images: 50
+- Corruption types: 7
+- Severity levels: 1–5
+- Baseline condition: Severity 0
+- Total conditions per image: 36
+- Total generated rows: 1,800
 
-## Planned Work
+The benchmark generated:
 
-- Verify the approved model checkpoint and test-split configuration.
+- `sweep_quality_provisional.csv`
+- `quality_summary.csv`
+- Six quality graphs in the `quality_graphs` folder.
+- `results_metadata.json`
 
-- Evaluate baseline performance on the existing test split.
+These results describe image-quality changes only. They are provisional and should not be treated as model-performance findings.
 
-- Apply controlled image-quality corruptions.
+**Note:** Noise can increase the sharpness measurement because the metric uses image intensity variations. A higher sharpness value does not necessarily mean that an image is clearer.
 
-- Measure classification performance under each condition.
+## 5. Running the Provisional Quality Benchmark
 
-- Analyze the relationship between image-quality scores and prediction errors.
+The script is:
 
-- Document results, limitations, and reproducibility details.
+`run_real_quality_sweep.py`
 
+Run it using the configured project Python environment:
 
+```powershell
+& "D:\Projects\Lucid\backend\.venv312\Scripts\python.exe" "D:\Projects\Lucid-Team\research\robustness\dhathri_benchmark_runner\run_real_quality_sweep.py"
+```
 
-## Research Integrity
+The script uses the existing test split, approved image-quality function and corruption library.
 
-- Preserve the approved frozen model and existing data splits.
+## 6. Running Automated Tests
 
-- Do not use DEMO predictions or synthetic smoke-test metrics as research results.
+Run the tests from the repository root:
 
-- Record corruption parameters and evaluation configuration.
+```powershell
+python -m pytest research/robustness/dhathri_benchmark_runner/tests -v
+```
 
-- Do not report experimental results until the approved checkpoint and evaluation setup are verified.
+The current test suite contains three tests covering sweep execution, CSV saving and resume functionality.
 
+## 7. Pending Work
 
+- Obtain the approved frozen model checkpoint.
+- Integrate the actual model prediction function.
+- Record pneumonia probabilities and classification results.
+- Validate the model-integrated benchmark using 50 images.
+- Generate classification-performance summaries.
+- Complete the full test-set evaluation after validating the 50-image run.
 
-## Scope
+## 8. Research Requirements
 
-This is a research and educational project, not a diagnostic system.
+The final research evaluation requires the approved frozen model checkpoint, real test images and labels, and the existing patient-level data split.
 
-
-
+The same model and preprocessing must be used throughout the experiment. Synthetic demo results and provisional quality-only results must not be reported as final model-performance findings.
