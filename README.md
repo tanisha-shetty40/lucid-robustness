@@ -17,7 +17,6 @@ Evaluate how image-quality degradation affects the performance of the frozen ima
 
 ### Quality vs. Error Robustness Analysis (`hithesh_quality_vs_error`)
 
-- **Contributor:** Hithesh K (`b/hithesh/quality-vs-error`)
 - **Key Findings:**
   - **RQ1 (Degradation Across Severities):** Quantified model performance drop across progressive perturbation severity levels.
   - **RQ2 (Error Detection via Quality Scores):** Demonstrated strong predictive separation between correct and erroneous predictions using image-quality metrics (**ROC-AUC = 0.9273**).
