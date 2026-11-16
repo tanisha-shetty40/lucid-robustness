@@ -4,10 +4,6 @@
 
 Evaluate how image-quality degradation affects the performance of the frozen image-classification model and investigate whether image-quality scores are associated with model errors.
 
-## Research Plan
-
-See [PLAN.md](PLAN.md) for the objectives, corruption conditions, evaluation protocol, metrics, and completion criteria.
-
 ## Planned Work
 
 - Verify the approved model checkpoint and test-split configuration.
