@@ -300,7 +300,7 @@ def run_sweep_analysis(sweep_path, weights_path, lucid_root, seed=42):
         "date": date.today().isoformat(),
         "checkpoint": "classifier.pt v1.0.0 (predictions from supplied sweep)",
         "dataset": "approved Kermany test split",
-        "n_images": len(records_by_id),
+        "n": len(records_by_id),
         "n_rows": len(scored_rows),
         "base_seed": seed,
         "corruption_seed_method": (
@@ -314,13 +314,11 @@ def run_sweep_analysis(sweep_path, weights_path, lucid_root, seed=42):
         "weights_fit_on": "validation",
         "weights_seed": weights.get("seed"),
         "classifier_rerun": False,
-        "bootstrap_method": "Hithesh row bootstrap, 500 resamples, seed 42",
-        "results": comparisons,
-    }
+        "bootstrap_method": "Hithesh row bootstrap, 500 resamples, seed 42",    }
 
     metadata_path = output_dir / "quality_v2.json"
     metadata_path.write_text(
-        json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
+   json.dumps({"meta": metadata, "results": {"comparisons": comparisons}}, indent=2) + "\n", encoding="utf-8"
     )
 
     summary_path = output_dir / "quality_v2_summary.md"

@@ -10,7 +10,7 @@ This module explores whether five image-quality indicators can help estimate whe
 
 \## Current status
 
-The five indicators, quality score, fitting helper, and synthetic demo are implemented. Synthetic indicator tests pass. Real model evaluation is not complete.
+The five indicators, quality score, fitting helper, and synthetic demo are implemented. Synthetic indicator tests pass. The real test-sweep comparison is complete for 874 approved test images across 31,464 conditions. The classifier was not rerun. The sweep’s seed method differs from the manual’s rule and is documented in the results.
 
 
 
