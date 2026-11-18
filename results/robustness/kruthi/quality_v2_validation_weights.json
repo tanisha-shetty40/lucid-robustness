@@ -1,0 +1,38 @@
+{
+  "mu": [
+    179.47602625222473,
+    0.029478736094217747,
+    6.852799557184089,
+    0.7638056560538136,
+    8.00898793849127
+  ],
+  "sd": [
+    48.87957782465709,
+    0.09034518111719485,
+    0.7922834087838208,
+    0.9442123724157129,
+    8.615390337821013
+  ],
+  "coef": [
+    0.4602618000368123,
+    2.049493156922318,
+    -0.09044652969176238,
+    -0.3254762281646706,
+    -3.2137193003359092
+  ],
+  "intercept": -3.6674452839673006,
+  "fit_on": "validation",
+  "seed": 42,
+  "indicators": [
+    "hist_spread",
+    "edge_density",
+    "entropy",
+    "blockiness",
+    "local_contrast"
+  ],
+  "validation_images": 874,
+  "conditions_per_image": 36,
+  "predictions": 31464,
+  "checkpoint_architecture": "resnet18",
+  "note": "Validation fit only; not final test performance."
+}
