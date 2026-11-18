@@ -237,11 +237,10 @@ def run_sweep_analysis(sweep_path, weights_path, lucid_root, seed=42):
                 condition_seed = get_condition_seed(
                     seed, image_id, corruption, severity
                 )
-                rng = np.random.default_rng(condition_seed)
                 image = CORRUPTIONS[corruption](
-                    original.copy(), severity, rng
+                    original.copy(), severity, seed=condition_seed
                 )
-
+               
             old_result = old_quality(image)
             recomputed_old_score = float(old_result["score"])
             if recomputed_old_score != row["quality"]:
